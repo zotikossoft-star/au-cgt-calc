@@ -14,56 +14,139 @@ interface ParseResult {
  */
 export async function parseCSV(file: File): Promise<ParseResult> {
   return new Promise((resolve) => {
-    Papa.parse(file, {
-      header: true,
-      skipEmptyLines: true,
-      transformHeader: (header) => header.trim().replace(/^"|"$/g, ''), // Remove surrounding quotes
-      complete: (results) => {
-        if (results.errors.length > 0) {
-          console.error('CSV parsing errors:', results.errors);
-          resolve({
-            fileType: 'unknown',
-            error: `CSV parsing error: ${results.errors[0].message}`,
-          });
-          return;
-        }
+    // First, read the file as text to handle CommSec multi-line headers
+    const reader = new FileReader();
 
-        const headers = results.meta.fields || [];
-        console.log('Parsed headers:', headers); // Debug log
-        
-        const fileType = detectFileType(headers);
-        console.log('Detected file type:', fileType); // Debug log
-
-        if (fileType === 'crypto') {
-          const transactions = parseCryptoTransactions(results.data as Record<string, string>[]);
-          console.log('Parsed crypto transactions:', transactions.length); // Debug log
-          resolve({
-            fileType: 'crypto',
-            cryptoTransactions: transactions,
-          });
-        } else if (fileType === 'asx') {
-          const transactions = parseASXTransactions(results.data as Record<string, string>[]);
-          console.log('Parsed ASX transactions:', transactions.length); // Debug log
-          resolve({
-            fileType: 'asx',
-            asxTransactions: transactions,
-          });
-        } else {
-          console.error('Unknown file format. Headers found:', headers);
-          resolve({
-            fileType: 'unknown',
-            error: 'Unable to detect file format. Please upload a CoinSpot or CommSec CSV file.',
-          });
-        }
-      },
-      error: (error) => {
-        console.error('Papa Parse error:', error);
+    reader.onload = (e) => {
+      const text = e.target?.result as string;
+      if (!text) {
         resolve({
           fileType: 'unknown',
-          error: `Failed to parse CSV: ${error.message}`,
+          error: 'Failed to read file',
         });
-      },
-    });
+        return;
+      }
+
+      // Check if this is a CommSec file by looking for the header row
+      const lines = text.split('\n');
+      let headerLineIndex = -1;
+
+      // Find the line that contains the actual CSV headers
+      for (let i = 0; i < Math.min(lines.length, 20); i++) {
+        const line = lines[i];
+        // Look for the header row with Code,Company,Date,Type or Transaction Date,Type,Market
+        if (line.includes('Code') && line.includes('Company') && line.includes('Date') && line.includes('Type')) {
+          headerLineIndex = i;
+          break;
+        } else if (line.includes('Transaction Date') && line.includes('Market') && line.includes('Total AUD')) {
+          headerLineIndex = i;
+          break;
+        }
+      }
+
+      let csvData = text;
+
+      // If we found a header line, extract only the relevant data
+      if (headerLineIndex !== -1) {
+        console.log('Found header at line:', headerLineIndex);
+        // Get everything from the header line onwards
+        csvData = lines.slice(headerLineIndex).join('\n');
+
+        // Remove footer content (everything after blank line following data)
+        const dataLines = csvData.split('\n');
+        let lastDataIndex = dataLines.length;
+
+        // Find where the actual transaction data ends
+        for (let i = 1; i < dataLines.length; i++) {
+          const line = dataLines[i].trim();
+          // Stop at lines that start with quotes and contain long text (disclaimers)
+          if (line.startsWith('"The transaction summary') ||
+              line.startsWith('"GLOSSARY"') ||
+              line === '' && i > 5) {
+            lastDataIndex = i;
+            break;
+          }
+        }
+
+        csvData = dataLines.slice(0, lastDataIndex).join('\n');
+      }
+
+      console.log('Processing CSV data, first 200 chars:', csvData.substring(0, 200));
+
+      // Now parse with PapaParse
+      Papa.parse(csvData, {
+        header: true,
+        skipEmptyLines: true,
+        transformHeader: (header) => header.trim().replace(/^"|"$/g, ''),
+        complete: (results) => {
+          if (results.errors.length > 0) {
+            console.error('CSV parsing errors:', results.errors);
+            // Don't fail on minor errors, continue if we have data
+            if (!results.data || results.data.length === 0) {
+              resolve({
+                fileType: 'unknown',
+                error: `CSV parsing error: ${results.errors[0].message}`,
+              });
+              return;
+            }
+          }
+
+          const headers = results.meta.fields || [];
+          console.log('Parsed headers:', headers);
+
+          const fileType = detectFileType(headers);
+          console.log('Detected file type:', fileType);
+
+          if (fileType === 'crypto') {
+            const transactions = parseCryptoTransactions(results.data as Record<string, string>[]);
+            console.log('Parsed crypto transactions:', transactions.length);
+            resolve({
+              fileType: 'crypto',
+              cryptoTransactions: transactions,
+            });
+          } else if (fileType === 'asx') {
+            const transactions = parseASXTransactions(results.data as Record<string, string>[]);
+            console.log('Parsed ASX transactions:', transactions.length);
+
+            if (transactions.length === 0) {
+              resolve({
+                fileType: 'asx',
+                asxTransactions: [],
+                error: 'No transactions found in this file. The file may contain no transaction data for this period.',
+              });
+              return;
+            }
+
+            resolve({
+              fileType: 'asx',
+              asxTransactions: transactions,
+            });
+          } else {
+            console.error('Unknown file format. Headers found:', headers);
+            resolve({
+              fileType: 'unknown',
+              error: 'Unable to detect file format. Please upload a CoinSpot or CommSec CSV file.',
+            });
+          }
+        },
+        error: (error: Error) => {
+          console.error('Papa Parse error:', error);
+          resolve({
+            fileType: 'unknown',
+            error: `Failed to parse CSV: ${error.message}`,
+          });
+        },
+      });
+    };
+
+    reader.onerror = () => {
+      resolve({
+        fileType: 'unknown',
+        error: 'Failed to read file',
+      });
+    };
+
+    reader.readAsText(file);
   });
 }
 
@@ -127,29 +210,40 @@ function parseASXTransactions(data: Record<string, string>[]): ASXTransaction[] 
 
   for (const row of data) {
     try {
-      const code = row['Code']?.replace(/"/g, '');
+      const code = row['Code']?.replace(/"/g, '').trim();
       if (!code) continue;
 
+      // Skip summary rows and footer content
+      if (code.toLowerCase().includes('total') ||
+          code.toLowerCase().includes('glossary') ||
+          code === '') continue;
+
       const dateStr = row['Date'];
-      if (!dateStr) continue;
+      if (!dateStr || dateStr.trim() === '') continue;
 
       const date = parseASXDate(dateStr);
       if (!date) continue;
 
-      const type = row['Type'] as 'Buy' | 'Sell';
+      const typeRaw = row['Type']?.trim();
+      const type = typeRaw as 'Buy' | 'Sell';
       if (type !== 'Buy' && type !== 'Sell') continue;
 
-      const quantity = Math.abs(parseNumber(row['Quantity']));
-      const unitPrice = parseNumber(row['Unit Price ($)']);
+      // Parse quantity - handle negative values for sells
+      const quantityRaw = parseNumber(row['Quantity']);
+      const quantity = Math.abs(quantityRaw);
+
+      const unitPrice = Math.abs(parseNumber(row['Unit Price ($)']));
       const tradeValue = Math.abs(parseNumber(row['Trade Value ($)']));
-      const brokerage = parseNumber(row['Brokerage+GST ($)']);
+      const brokerage = Math.abs(parseNumber(row['Brokerage+GST ($)']));
       const totalValue = Math.abs(parseNumber(row['Total Value ($)']));
 
       if (quantity <= 0) continue;
 
+      console.log(`Parsed ${type} transaction: ${code} x ${quantity} @ $${unitPrice} on ${dateStr}`);
+
       transactions.push({
         code,
-        company: row['Company']?.replace(/"/g, '') || code,
+        company: row['Company']?.replace(/"/g, '').trim() || code,
         date,
         type,
         quantity,
