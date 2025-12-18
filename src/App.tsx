@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { Header, FileUpload, Results, OwnerInput } from './components';
+import { Header, FileUpload, Results } from './components';
 import { parseCSV } from './utils/csvParser';
 import { calculateCGT } from './utils/cgtCalculator';
 import { generatePDFReports, downloadPDF, downloadAllPDFs } from './utils/pdfGenerator';
@@ -9,7 +9,6 @@ type AppState = 'upload' | 'processing' | 'results';
 
 function App() {
   const [state, setState] = useState<AppState>('upload');
-  const [ownerName, setOwnerName] = useState('');
   const [error, setError] = useState<string>();
   const [result, setResult] = useState<ProcessingResult | null>(null);
   const [reports, setReports] = useState<PDFReport[]>([]);
@@ -45,36 +44,29 @@ function App() {
         return;
       }
 
-      // Determine file type (all files must be the same type)
+      // Determine file type (can be mixed)
       const fileTypes = parseResults.map(r => r.fileType);
       const uniqueTypes = [...new Set(fileTypes)];
 
+      // Determine overall file type
+      let fileType: 'crypto' | 'asx' | 'mixed' = 'crypto';
       if (uniqueTypes.length > 1) {
-        setError('All files must be of the same type (either all crypto or all ASX)');
-        setState('upload');
-        return;
+        fileType = 'mixed'; // Both crypto and ASX files uploaded
+      } else {
+        fileType = uniqueTypes[0] as 'crypto' | 'asx';
       }
-
-      const fileType = uniqueTypes[0];
 
       // Combine all transactions from all files
-      let allCryptoTransactions: CryptoTransaction[] = [];
-      let allAsxTransactions: ASXTransaction[] = [];
+      const allCryptoTransactions: CryptoTransaction[] = parseResults
+        .flatMap(r => r.cryptoTransactions || [])
+        .sort((a, b) => a.transactionDate.getTime() - b.transactionDate.getTime());
 
-      if (fileType === 'crypto') {
-        allCryptoTransactions = parseResults
-          .flatMap(r => r.cryptoTransactions || [])
-          .sort((a, b) => a.transactionDate.getTime() - b.transactionDate.getTime());
-      } else if (fileType === 'asx') {
-        allAsxTransactions = parseResults
-          .flatMap(r => r.asxTransactions || [])
-          .sort((a, b) => a.date.getTime() - b.date.getTime());
-      }
+      const allAsxTransactions: ASXTransaction[] = parseResults
+        .flatMap(r => r.asxTransactions || [])
+        .sort((a, b) => a.date.getTime() - b.date.getTime());
 
       // Check if we have any transactions at all
-      const totalTransactions = fileType === 'crypto'
-        ? allCryptoTransactions.length
-        : allAsxTransactions.length;
+      const totalTransactions = allCryptoTransactions.length + allAsxTransactions.length;
 
       if (totalTransactions === 0) {
         setError('No transactions found in any of the uploaded files');
@@ -83,14 +75,14 @@ function App() {
       }
 
       console.log(`Combined ${totalTransactions} transactions from ${files.length} file(s)`);
+      console.log(`- Crypto: ${allCryptoTransactions.length}, ASX: ${allAsxTransactions.length}`);
 
       // Calculate CGT
-      const name = ownerName.trim() || 'Report';
       const cgtResult = calculateCGT(
         fileType,
-        fileType === 'crypto' ? allCryptoTransactions : undefined,
-        fileType === 'asx' ? allAsxTransactions : undefined,
-        name
+        allCryptoTransactions.length > 0 ? allCryptoTransactions : undefined,
+        allAsxTransactions.length > 0 ? allAsxTransactions : undefined,
+        'CGT Report'
       );
 
       if (!cgtResult.success) {
@@ -111,7 +103,7 @@ function App() {
       setError(err instanceof Error ? err.message : 'An unexpected error occurred');
       setState('upload');
     }
-  }, [ownerName]);
+  }, []);
 
   const handleDownload = useCallback((report: PDFReport) => {
     downloadPDF(report);
@@ -134,14 +126,11 @@ function App() {
 
       <main className="max-w-6xl mx-auto px-4 py-8">
         {state === 'upload' && (
-          <div className="space-y-6">
-            <OwnerInput value={ownerName} onChange={setOwnerName} />
-            <FileUpload
-              onFileSelect={handleFileSelect}
-              isProcessing={false}
-              error={error}
-            />
-          </div>
+          <FileUpload
+            onFileSelect={handleFileSelect}
+            isProcessing={false}
+            error={error}
+          />
         )}
 
         {state === 'processing' && (

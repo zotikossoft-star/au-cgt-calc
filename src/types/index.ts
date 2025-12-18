@@ -1,5 +1,5 @@
 // File types
-export type FileType = 'crypto' | 'asx' | 'unknown';
+export type FileType = 'crypto' | 'asx' | 'mixed' | 'unknown';
 
 // Crypto transaction (CoinSpot format)
 export interface CryptoTransaction {
@@ -39,6 +39,14 @@ export interface InventoryLot {
   financialYear: string;
 }
 
+// Acquisition detail for CGT calculation
+export interface AcquisitionDetail {
+  date: Date;
+  amount: number;
+  cost: number;
+  holdingDays: number;
+}
+
 // CGT Event
 export interface CGTEvent {
   disposalDate: Date;
@@ -55,6 +63,7 @@ export interface CGTEvent {
   discountPercentage: number;
   cgtDiscountAmount: number;
   netCapitalGain: number;
+  acquisitionDetails?: AcquisitionDetail[];
 }
 
 // Financial Year Summary
@@ -103,4 +112,53 @@ export interface PDFReport {
   fy: string;
   blob: Blob;
   filename: string;
+}
+
+// Portfolio View Types (v2.0.0)
+export type PortfolioScope = 'combined' | 'crypto' | 'asx';
+
+export interface PortfolioMetrics {
+  // Cost basis metrics (no market prices)
+  totalInvested: number;
+  totalRealizedGain: number;
+  holdingsCount: number;
+
+  // Historical
+  totalTransactionCount: number;
+  totalBuyTransactions: number;
+  totalSellTransactions: number;
+  avgHoldingPeriodDays: number;
+
+  // Tax efficiency
+  longTermEventsCount: number;
+  shortTermEventsCount: number;
+  longTermGainsPercent: number;
+  totalCGTDiscount: number;
+}
+
+export interface AssetBreakdown {
+  asset: string;
+  assetName?: string;
+  quantity: number;
+  costBase: number;
+  percentOfPortfolio: number;
+}
+
+export interface AssetPerformance {
+  asset: string;
+  assetName?: string;
+  totalBought: number;
+  totalSold: number;
+  realizedGain: number;
+  cgtDiscount: number;
+  transactionCount: number;
+  avgHoldingDays: number;
+}
+
+export interface PortfolioViewData {
+  holdings: Holding[];
+  metrics: PortfolioMetrics;
+  assetBreakdown: AssetBreakdown[];
+  performanceByAsset: AssetPerformance[];
+  lastUpdated: Date;
 }

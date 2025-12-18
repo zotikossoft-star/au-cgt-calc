@@ -79,23 +79,39 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileSelect, isProcessi
       </div>
 
       {/* Supported formats info */}
-      <div className="mt-6 bg-gray-50 rounded-lg p-4">
-        <h3 className="font-medium text-gray-700 mb-2">Supported CSV Formats:</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-          <div className="flex items-start gap-2">
-            <div className="w-2 h-2 rounded-full bg-green-500 mt-1.5"></div>
+      <div className="mt-6 bg-blue-50 rounded-lg p-6 border border-blue-200">
+        <h3 className="font-semibold text-blue-900 mb-4">Supported CSV Formats</h3>
+        <div className="space-y-4">
+          <div className="flex items-start gap-3">
+            <div className="w-2 h-2 rounded-full bg-orange-500 mt-2 flex-shrink-0"></div>
             <div>
-              <span className="font-medium">Cryptocurrency</span>
-              <p className="text-gray-500">CoinSpot transaction export</p>
+              <span className="font-semibold text-gray-800">Cryptocurrency</span>
+              <p className="text-sm text-gray-600 mt-1">CoinSpot transaction export CSV files</p>
+              <p className="text-xs text-gray-500 mt-1">
+                Download from CoinSpot: Settings → Transaction History → Export to CSV
+              </p>
             </div>
           </div>
-          <div className="flex items-start gap-2">
-            <div className="w-2 h-2 rounded-full bg-blue-500 mt-1.5"></div>
+          <div className="flex items-start gap-3">
+            <div className="w-2 h-2 rounded-full bg-blue-500 mt-2 flex-shrink-0"></div>
             <div>
-              <span className="font-medium">ASX Shares</span>
-              <p className="text-gray-500">CommSec transaction export</p>
+              <span className="font-semibold text-gray-800">ASX Shares</span>
+              <p className="text-sm text-gray-600 mt-1">CommSec transaction export CSV files</p>
+              <p className="text-xs text-gray-500 mt-1">
+                Download from CommSec: Portfolio → Transaction History → Download CSV
+              </p>
             </div>
           </div>
+        </div>
+
+        <div className="mt-4 pt-4 border-t border-blue-200">
+          <p className="text-sm font-medium text-blue-900 mb-2">Upload Options:</p>
+          <ul className="text-sm text-gray-700 space-y-1">
+            <li>✓ Upload only crypto files</li>
+            <li>✓ Upload only ASX files</li>
+            <li>✓ Upload both crypto and ASX files together</li>
+            <li>✓ Upload multiple years at once for accurate CGT calculation</li>
+          </ul>
         </div>
       </div>
 

@@ -19,9 +19,18 @@ export function calculateCGT(
   asxTransactions?: ASXTransaction[],
   ownerName: string = 'Report'
 ): ProcessingResult {
+  // Handle mixed portfolio (both crypto and ASX)
+  if (fileType === 'mixed' && cryptoTransactions && asxTransactions) {
+    return calculateMixedCGT(cryptoTransactions, asxTransactions, ownerName);
+  }
+
+  // Handle crypto only
   if (fileType === 'crypto' && cryptoTransactions) {
     return calculateCryptoCGT(cryptoTransactions, ownerName);
-  } else if (fileType === 'asx' && asxTransactions) {
+  }
+
+  // Handle ASX only
+  if (fileType === 'asx' && asxTransactions) {
     return calculateASXCGT(asxTransactions, ownerName);
   }
 
@@ -109,36 +118,33 @@ function calculateCryptoCGT(
           coinLots.shift();
         }
       }
-      
-      // Calculate gain/loss
+
       const grossGainLoss = proceeds - costBase;
-      
-      // Calculate discount eligibility
+
       const totalSold = acquisitionDetails.reduce((sum, d) => sum + d.amount, 0);
-      const discountEligibleAmount = acquisitionDetails
-        .filter(d => d.holdingDays > 365)
-        .reduce((sum, d) => sum + d.amount, 0);
-      const discountPercentage = totalSold > 0 ? discountEligibleAmount / totalSold : 0;
-      
       const avgHoldingDays = totalSold > 0
         ? acquisitionDetails.reduce((sum, d) => sum + d.holdingDays * d.amount, 0) / totalSold
         : 0;
       const isLongTerm = avgHoldingDays > 365;
-      
-      // Apply 50% discount only to gains on long-term holdings
+
+      const discountEligibleAmount = acquisitionDetails
+        .filter(d => d.holdingDays > 365)
+        .reduce((sum, d) => sum + d.amount, 0);
+      const discountPercentage = totalSold > 0 ? discountEligibleAmount / totalSold : 0;
+
       let cgtDiscountAmount = 0;
       let netCapitalGain = grossGainLoss;
-      
+
       if (grossGainLoss > 0 && discountPercentage > 0) {
         const discountEligibleGain = grossGainLoss * discountPercentage;
         cgtDiscountAmount = discountEligibleGain * 0.5;
         netCapitalGain = grossGainLoss - cgtDiscountAmount;
       }
-      
+
       const earliestAcquisition = acquisitionDetails.length > 0
         ? acquisitionDetails.reduce((min, d) => d.date < min ? d.date : min, acquisitionDetails[0].date)
         : tx.transactionDate;
-      
+
       const cgtEvent: CGTEvent = {
         disposalDate: tx.transactionDate,
         acquisitionDate: earliestAcquisition,
@@ -153,6 +159,7 @@ function calculateCryptoCGT(
         discountPercentage: discountPercentage * 100,
         cgtDiscountAmount,
         netCapitalGain,
+        acquisitionDetails,
       };
       
       // Add to FY group
@@ -262,40 +269,37 @@ function calculateASXCGT(
           stockLots.shift();
         }
       }
-      
-      // Calculate gain/loss
+
       const grossGainLoss = proceeds - costBase;
-      
-      // Calculate discount eligibility
+
       const totalSold = acquisitionDetails.reduce((sum, d) => sum + d.amount, 0);
-      const discountEligibleAmount = acquisitionDetails
-        .filter(d => d.holdingDays > 365)
-        .reduce((sum, d) => sum + d.amount, 0);
-      const discountPercentage = totalSold > 0 ? discountEligibleAmount / totalSold : 0;
-      
       const avgHoldingDays = totalSold > 0
         ? acquisitionDetails.reduce((sum, d) => sum + d.holdingDays * d.amount, 0) / totalSold
         : 0;
       const isLongTerm = avgHoldingDays > 365;
-      
-      // Apply 50% discount only to gains on long-term holdings
+
+      const discountEligibleAmount = acquisitionDetails
+        .filter(d => d.holdingDays > 365)
+        .reduce((sum, d) => sum + d.amount, 0);
+      const discountPercentage = totalSold > 0 ? discountEligibleAmount / totalSold : 0;
+
       let cgtDiscountAmount = 0;
       let netCapitalGain = grossGainLoss;
-      
+
       if (grossGainLoss > 0 && discountPercentage > 0) {
         const discountEligibleGain = grossGainLoss * discountPercentage;
         cgtDiscountAmount = discountEligibleGain * 0.5;
         netCapitalGain = grossGainLoss - cgtDiscountAmount;
       }
-      
+
       const earliestAcquisition = acquisitionDetails.length > 0
         ? acquisitionDetails.reduce((min, d) => d.date < min ? d.date : min, acquisitionDetails[0].date)
         : tx.date;
-      
+
       const cgtEvent: CGTEvent = {
         disposalDate: tx.date,
         acquisitionDate: earliestAcquisition,
-        asset: code,
+        asset: `${code}.AX`,
         assetName: tx.company,
         quantity: tx.quantity,
         proceeds,
@@ -307,6 +311,7 @@ function calculateASXCGT(
         discountPercentage: discountPercentage * 100,
         cgtDiscountAmount,
         netCapitalGain,
+        acquisitionDetails,
       };
       
       // Add to FY group
@@ -320,8 +325,8 @@ function calculateASXCGT(
   // Build FY summaries
   const summaryByFY = buildFYSummaries(cgtEventsByFY, transactions.map(t => t.financialYear));
   
-  // Build holdings with names
-  const holdings = buildHoldings(inventory, stockNames);
+  // Build holdings with names (add .AX suffix for ASX stocks)
+  const holdings = buildHoldings(inventory, stockNames, true);
   
   // Get date range
   const dates = transactions.map(t => t.date);
@@ -393,17 +398,18 @@ function buildFYSummaries(
  */
 function buildHoldings(
   inventory: Map<string, InventoryLot[]>,
-  names?: Map<string, string>
+  names?: Map<string, string>,
+  addAxSuffix: boolean = false
 ): Holding[] {
   const holdings: Holding[] = [];
-  
+
   for (const [asset, lots] of inventory) {
     const totalQuantity = lots.reduce((sum, lot) => sum + lot.quantityRemaining, 0);
     const totalCost = lots.reduce((sum, lot) => sum + lot.quantityRemaining * lot.costPerUnit, 0);
-    
+
     if (totalQuantity > 0.000001) {
       holdings.push({
-        asset,
+        asset: addAxSuffix ? `${asset}.AX` : asset,
         assetName: names?.get(asset),
         quantity: totalQuantity,
         costBase: totalCost,
@@ -411,7 +417,84 @@ function buildHoldings(
       });
     }
   }
-  
+
   // Sort by cost base descending
   return holdings.sort((a, b) => b.costBase - a.costBase);
+}
+
+/**
+ * Calculate CGT for mixed portfolio (both crypto and ASX)
+ */
+function calculateMixedCGT(
+  cryptoTransactions: CryptoTransaction[],
+  asxTransactions: ASXTransaction[],
+  ownerName: string
+): ProcessingResult {
+  // Calculate crypto CGT
+  const cryptoResult = calculateCryptoCGT(cryptoTransactions, ownerName);
+
+  // Calculate ASX CGT
+  const asxResult = calculateASXCGT(asxTransactions, ownerName);
+
+  // Merge results
+  // Combine all FY summaries and sort by FY
+  const allFYs = new Map<string, FYSummary>();
+
+  // Add crypto FY summaries
+  cryptoResult.summaryByFY.forEach(fy => {
+    allFYs.set(fy.fy, fy);
+  });
+
+  // Merge ASX FY summaries
+  asxResult.summaryByFY.forEach(asxFy => {
+    const existing = allFYs.get(asxFy.fy);
+    if (existing) {
+      // Merge events and recalculate totals
+      allFYs.set(asxFy.fy, {
+        ...existing,
+        events: [...existing.events, ...asxFy.events],
+        totalProceeds: existing.totalProceeds + asxFy.totalProceeds,
+        totalCostBase: existing.totalCostBase + asxFy.totalCostBase,
+        shortTermGains: existing.shortTermGains + asxFy.shortTermGains,
+        shortTermLosses: existing.shortTermLosses + asxFy.shortTermLosses,
+        longTermGains: existing.longTermGains + asxFy.longTermGains,
+        longTermLosses: existing.longTermLosses + asxFy.longTermLosses,
+        grossCapitalGain: existing.grossCapitalGain + asxFy.grossCapitalGain,
+        totalDiscount: existing.totalDiscount + asxFy.totalDiscount,
+        netCapitalGain: existing.netCapitalGain + asxFy.netCapitalGain,
+      });
+    } else {
+      allFYs.set(asxFy.fy, asxFy);
+    }
+  });
+
+  // Convert map to array and sort by FY
+  const summaryByFY = Array.from(allFYs.values()).sort((a, b) => a.fy.localeCompare(b.fy));
+
+  // Combine holdings
+  const holdings = [...cryptoResult.holdings, ...asxResult.holdings].sort(
+    (a, b) => b.costBase - a.costBase
+  );
+
+  // Determine date range
+  const allDates = [
+    cryptoResult.dateRange.start,
+    cryptoResult.dateRange.end,
+    asxResult.dateRange.start,
+    asxResult.dateRange.end,
+  ];
+  const dateRange = {
+    start: new Date(Math.min(...allDates.map(d => d.getTime()))),
+    end: new Date(Math.max(...allDates.map(d => d.getTime()))),
+  };
+
+  return {
+    success: true,
+    fileType: 'mixed',
+    ownerName,
+    summaryByFY,
+    holdings,
+    totalTransactions: cryptoResult.totalTransactions + asxResult.totalTransactions,
+    dateRange,
+  };
 }
