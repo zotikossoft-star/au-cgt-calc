@@ -104,6 +104,9 @@ export const HoldingsBreakdownTable: React.FC<HoldingsBreakdownTableProps> = ({ 
               >
                 % of Portfolio {sortField === 'percentage' && (sortDirection === 'asc' ? '↑' : '↓')}
               </th>
+              <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-normal min-w-[180px]">
+                CGT Discount Eligibility
+              </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
@@ -139,6 +142,35 @@ export const HoldingsBreakdownTable: React.FC<HoldingsBreakdownTableProps> = ({ 
                     </span>
                   </div>
                 </td>
+                <td className="px-6 py-4 text-center">
+                  {holding.cgtEligibility && (
+                    <div>
+                      {holding.cgtEligibility.eligiblePercentage === 100 ? (
+                        <div className="inline-flex items-center px-3 py-1 rounded-full bg-green-100 text-green-800 text-sm font-medium">
+                          ✓ All Eligible (100%)
+                        </div>
+                      ) : holding.cgtEligibility.eligiblePercentage === 0 ? (
+                        <div className="inline-flex items-center px-3 py-1 rounded-full bg-orange-100 text-orange-800 text-sm font-medium">
+                          None Eligible (0%)
+                        </div>
+                      ) : (
+                        <div>
+                          <div className="text-sm font-medium text-gray-900 mb-1">
+                            {holding.cgtEligibility.eligiblePercentage.toFixed(1)}% Eligible
+                          </div>
+                          <div className="text-xs text-gray-600 space-y-0.5">
+                            <div className="text-green-700">
+                              ✓ {holding.cgtEligibility.eligibleQuantity.toFixed(holding.cgtEligibility.eligibleQuantity < 1 ? 6 : 2)} eligible
+                            </div>
+                            <div className="text-orange-700">
+                              {holding.cgtEligibility.ineligibleQuantity.toFixed(holding.cgtEligibility.ineligibleQuantity < 1 ? 6 : 2)} not eligible
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>
@@ -155,6 +187,7 @@ export const HoldingsBreakdownTable: React.FC<HoldingsBreakdownTableProps> = ({ 
               <td className="px-6 py-3 text-right font-medium text-gray-700">
                 100.0%
               </td>
+              <td></td>
             </tr>
           </tfoot>
         </table>
