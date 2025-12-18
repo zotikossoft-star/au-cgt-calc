@@ -3,7 +3,7 @@ import { useDropzone } from 'react-dropzone';
 import { Upload, FileSpreadsheet, AlertCircle } from 'lucide-react';
 
 interface FileUploadProps {
-  onFileSelect: (file: File) => void;
+  onFileSelect: (files: File[]) => void;
   isProcessing: boolean;
   error?: string;
 }
@@ -11,7 +11,7 @@ interface FileUploadProps {
 export const FileUpload: React.FC<FileUploadProps> = ({ onFileSelect, isProcessing, error }) => {
   const onDrop = useCallback((acceptedFiles: File[]) => {
     if (acceptedFiles.length > 0) {
-      onFileSelect(acceptedFiles[0]);
+      onFileSelect(acceptedFiles);
     }
   }, [onFileSelect]);
 
@@ -20,7 +20,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileSelect, isProcessi
     accept: {
       'text/csv': ['.csv'],
     },
-    maxFiles: 1,
+    multiple: true,
     disabled: isProcessing,
   });
 
@@ -57,17 +57,20 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileSelect, isProcessi
           ) : isDragActive ? (
             <>
               <FileSpreadsheet className="w-12 h-12 text-blue-500" />
-              <p className="text-lg font-medium text-blue-700">Drop your CSV file here</p>
+              <p className="text-lg font-medium text-blue-700">Drop your CSV files here</p>
             </>
           ) : (
             <>
               <Upload className="w-12 h-12 text-gray-400" />
               <div>
                 <p className="text-lg font-medium text-gray-700">
-                  Drag & drop your CSV file here
+                  Drag & drop your CSV files here
                 </p>
                 <p className="text-sm text-gray-500 mt-1">
-                  or click to browse
+                  or click to browse (you can select multiple files)
+                </p>
+                <p className="text-xs text-blue-600 mt-2 font-medium">
+                  💡 Tip: Upload all your financial year CSV files together for accurate cross-year CGT calculation
                 </p>
               </div>
             </>

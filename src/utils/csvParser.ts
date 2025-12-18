@@ -27,9 +27,18 @@ export async function parseCSV(file: File): Promise<ParseResult> {
         return;
       }
 
+      console.log('File content preview (first 500 chars):', text.substring(0, 500));
+
       // Check if this is a CommSec file by looking for the header row
       const lines = text.split('\n');
       let headerLineIndex = -1;
+      let isEmptyTransactionFile = false;
+
+      // Check for "no transactions" message
+      if (text.includes('There are no transactions on this account')) {
+        isEmptyTransactionFile = true;
+        console.log('Detected empty transaction file (no transactions message found)');
+      }
 
       // Find the line that contains the actual CSV headers
       for (let i = 0; i < Math.min(lines.length, 20); i++) {
@@ -42,6 +51,16 @@ export async function parseCSV(file: File): Promise<ParseResult> {
           headerLineIndex = i;
           break;
         }
+      }
+
+      // If this is an empty transaction file from CommSec, return empty ASX result
+      if (isEmptyTransactionFile && headerLineIndex === -1) {
+        console.log('Detected empty CommSec transaction file');
+        resolve({
+          fileType: 'asx',
+          asxTransactions: [],
+        });
+        return;
       }
 
       let csvData = text;
@@ -93,6 +112,7 @@ export async function parseCSV(file: File): Promise<ParseResult> {
 
           const headers = results.meta.fields || [];
           console.log('Parsed headers:', headers);
+          console.log('Number of data rows:', results.data.length);
 
           const fileType = detectFileType(headers);
           console.log('Detected file type:', fileType);
@@ -108,15 +128,8 @@ export async function parseCSV(file: File): Promise<ParseResult> {
             const transactions = parseASXTransactions(results.data as Record<string, string>[]);
             console.log('Parsed ASX transactions:', transactions.length);
 
-            if (transactions.length === 0) {
-              resolve({
-                fileType: 'asx',
-                asxTransactions: [],
-                error: 'No transactions found in this file. The file may contain no transaction data for this period.',
-              });
-              return;
-            }
-
+            // Allow empty transaction files (like FY with no transactions)
+            // They will be filtered out when combining multiple files
             resolve({
               fileType: 'asx',
               asxTransactions: transactions,

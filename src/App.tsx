@@ -3,7 +3,7 @@ import { Header, FileUpload, Results, OwnerInput } from './components';
 import { parseCSV } from './utils/csvParser';
 import { calculateCGT } from './utils/cgtCalculator';
 import { generatePDFReports, downloadPDF, downloadAllPDFs } from './utils/pdfGenerator';
-import { ProcessingResult, PDFReport } from './types';
+import { ProcessingResult, PDFReport, CryptoTransaction, ASXTransaction } from './types';
 
 type AppState = 'upload' | 'processing' | 'results';
 
@@ -14,26 +14,82 @@ function App() {
   const [result, setResult] = useState<ProcessingResult | null>(null);
   const [reports, setReports] = useState<PDFReport[]>([]);
 
-  const handleFileSelect = useCallback(async (file: File) => {
+  const handleFileSelect = useCallback(async (files: File[]) => {
     setError(undefined);
     setState('processing');
 
     try {
-      // Parse CSV
-      const parseResult = await parseCSV(file);
+      // Parse all CSV files
+      console.log(`Processing ${files.length} files:`, files.map(f => f.name));
+      const parseResults = await Promise.all(files.map(file => parseCSV(file)));
 
-      if (parseResult.error || parseResult.fileType === 'unknown') {
-        setError(parseResult.error || 'Unable to detect file format');
+      console.log('Parse results:', parseResults.map((r, i) => ({
+        file: files[i].name,
+        fileType: r.fileType,
+        error: r.error,
+        transactionCount: r.cryptoTransactions?.length || r.asxTransactions?.length || 0
+      })));
+
+      // Check for errors (but ignore "no transactions" errors)
+      const errors = parseResults.filter(r =>
+        (r.error && !r.error.includes('No transactions found')) || r.fileType === 'unknown'
+      );
+
+      if (errors.length > 0) {
+        const errorIndex = parseResults.findIndex(r =>
+          (r.error && !r.error.includes('No transactions found')) || r.fileType === 'unknown'
+        );
+        console.error(`Error in file ${files[errorIndex]?.name}:`, errors[0]);
+        setError(errors[0].error || 'Unable to detect file format in one or more files');
         setState('upload');
         return;
       }
 
+      // Determine file type (all files must be the same type)
+      const fileTypes = parseResults.map(r => r.fileType);
+      const uniqueTypes = [...new Set(fileTypes)];
+
+      if (uniqueTypes.length > 1) {
+        setError('All files must be of the same type (either all crypto or all ASX)');
+        setState('upload');
+        return;
+      }
+
+      const fileType = uniqueTypes[0];
+
+      // Combine all transactions from all files
+      let allCryptoTransactions: CryptoTransaction[] = [];
+      let allAsxTransactions: ASXTransaction[] = [];
+
+      if (fileType === 'crypto') {
+        allCryptoTransactions = parseResults
+          .flatMap(r => r.cryptoTransactions || [])
+          .sort((a, b) => a.transactionDate.getTime() - b.transactionDate.getTime());
+      } else if (fileType === 'asx') {
+        allAsxTransactions = parseResults
+          .flatMap(r => r.asxTransactions || [])
+          .sort((a, b) => a.date.getTime() - b.date.getTime());
+      }
+
+      // Check if we have any transactions at all
+      const totalTransactions = fileType === 'crypto'
+        ? allCryptoTransactions.length
+        : allAsxTransactions.length;
+
+      if (totalTransactions === 0) {
+        setError('No transactions found in any of the uploaded files');
+        setState('upload');
+        return;
+      }
+
+      console.log(`Combined ${totalTransactions} transactions from ${files.length} file(s)`);
+
       // Calculate CGT
       const name = ownerName.trim() || 'Report';
       const cgtResult = calculateCGT(
-        parseResult.fileType,
-        parseResult.cryptoTransactions,
-        parseResult.asxTransactions,
+        fileType,
+        fileType === 'crypto' ? allCryptoTransactions : undefined,
+        fileType === 'asx' ? allAsxTransactions : undefined,
         name
       );
 
