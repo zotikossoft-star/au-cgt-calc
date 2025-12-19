@@ -37,6 +37,7 @@ export const CGTReportView: React.FC<CGTReportViewProps> = ({
     assetName?: string;
     events: CGTEvent[];
   } | null>(null);
+  const [selectedFY, setSelectedFY] = useState<string | null>(null);
 
   // Filter data by scope if provided
   const filterByScope = (asset: string) => {
@@ -160,7 +161,22 @@ export const CGTReportView: React.FC<CGTReportViewProps> = ({
       {/* FY Summary Table */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-100">
-          <h3 className="font-semibold text-gray-800">Summary by Financial Year</h3>
+          <div className="flex items-center justify-between">
+            <h3 className="font-semibold text-gray-800">Summary by Financial Year</h3>
+            {selectedFY && (
+              <button
+                onClick={() => setSelectedFY(null)}
+                className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+              >
+                Clear Filter
+              </button>
+            )}
+          </div>
+          {selectedFY && (
+            <p className="text-xs text-gray-500 mt-1">
+              Filtering Realized P/L by {selectedFY} • Click row again or "Clear Filter" to show all years
+            </p>
+          )}
         </div>
         <div className="overflow-x-auto">
           <table className="w-full">
@@ -189,10 +205,24 @@ export const CGTReportView: React.FC<CGTReportViewProps> = ({
             <tbody className="divide-y divide-gray-100">
               {filteredSummaries.map((fy, index) => {
                 const report = reports.find(r => r.fy === fy.fy);
+                const isSelected = selectedFY === fy.fy;
                 return (
-                  <tr key={fy.fy} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                  <tr
+                    key={fy.fy}
+                    onClick={() => setSelectedFY(isSelected ? null : fy.fy)}
+                    className={`
+                      cursor-pointer transition-colors
+                      ${isSelected
+                        ? 'bg-blue-50 border-l-4 border-l-blue-600'
+                        : index % 2 === 0 ? 'bg-white hover:bg-gray-50' : 'bg-gray-50 hover:bg-gray-100'
+                      }
+                    `}
+                  >
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="font-medium text-gray-900">{fy.fy}</div>
+                      <div className={`font-medium ${isSelected ? 'text-blue-900' : 'text-gray-900'}`}>
+                        {fy.fy}
+                        {isSelected && <span className="ml-2 text-blue-600 text-xs">● Selected</span>}
+                      </div>
                       <div className="text-sm text-gray-500">
                         {formatDate(fy.fyStart)} - {formatDate(fy.fyEnd)}
                       </div>
@@ -216,7 +246,10 @@ export const CGTReportView: React.FC<CGTReportViewProps> = ({
                     <td className="px-6 py-4 whitespace-nowrap text-center">
                       {report && (
                         <button
-                          onClick={() => onDownload(report)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onDownload(report);
+                          }}
                           className="inline-flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
                         >
                           <Download className="w-4 h-4" />
@@ -247,6 +280,11 @@ export const CGTReportView: React.FC<CGTReportViewProps> = ({
 
       {/* Realized P/L by Asset */}
       {(() => {
+        // Filter summaries by selected FY if applicable
+        const summariesToShow = selectedFY
+          ? filteredSummaries.filter(fy => fy.fy === selectedFY)
+          : filteredSummaries;
+
         // Group CGT events by asset and calculate totals
         const assetPnL = new Map<string, {
           asset: string;
@@ -260,7 +298,7 @@ export const CGTReportView: React.FC<CGTReportViewProps> = ({
           shortTermEvents: number;
         }>();
 
-        filteredSummaries.forEach(fy => {
+        summariesToShow.forEach(fy => {
           fy.events.forEach(event => {
             const existing = assetPnL.get(event.asset) || {
               asset: event.asset,
@@ -297,8 +335,16 @@ export const CGTReportView: React.FC<CGTReportViewProps> = ({
         return (
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-100">
-              <h3 className="font-semibold text-gray-800">Realized P/L by Asset</h3>
-              <p className="text-xs text-gray-500 mt-1">Assets that participated in CGT events (sold positions)</p>
+              <h3 className="font-semibold text-gray-800">
+                Realized P/L by Asset
+                {selectedFY && <span className="text-blue-600 ml-2">• {selectedFY}</span>}
+              </h3>
+              <p className="text-xs text-gray-500 mt-1">
+                {selectedFY
+                  ? `Assets that participated in CGT events during ${selectedFY}`
+                  : 'Assets that participated in CGT events (sold positions)'
+                }
+              </p>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full">
@@ -329,9 +375,9 @@ export const CGTReportView: React.FC<CGTReportViewProps> = ({
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {assetPnLArray.map((item, index) => {
-                    // Get all events for this asset
+                    // Get all events for this asset (filtered by selected FY if applicable)
                     const assetEvents: CGTEvent[] = [];
-                    filteredSummaries.forEach(fy => {
+                    summariesToShow.forEach(fy => {
                       fy.events.forEach(event => {
                         if (event.asset === item.asset) {
                           assetEvents.push(event);
