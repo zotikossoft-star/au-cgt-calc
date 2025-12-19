@@ -39,17 +39,23 @@ export const CGTEventDetailsModal: React.FC<CGTEventDetailsModalProps> = ({ even
               <p className="text-white text-lg font-bold mt-1">{formatCurrency(event.proceeds)}</p>
             </div>
             <div>
-              <p className="text-blue-200 text-xs uppercase tracking-wider">Gross Gain</p>
+              <p className="text-blue-200 text-xs uppercase tracking-wider">
+                {event.grossGainLoss >= 0 ? 'Gross Gain' : 'Gross Loss'}
+              </p>
               <p className={`text-lg font-bold mt-1 ${event.grossGainLoss >= 0 ? 'text-green-300' : 'text-red-300'}`}>
                 {formatCurrency(event.grossGainLoss)}
               </p>
             </div>
             <div>
-              <p className="text-blue-200 text-xs uppercase tracking-wider">Taxable Gain</p>
+              <p className="text-blue-200 text-xs uppercase tracking-wider">
+                {event.grossGainLoss >= 0 ? 'Taxable Gain' : 'Capital Loss'}
+              </p>
               <p className={`text-lg font-bold mt-1 ${event.netCapitalGain >= 0 ? 'text-green-300' : 'text-red-300'}`}>
                 {formatCurrency(event.netCapitalGain)}
               </p>
-              <p className="text-blue-100 text-xs mt-1">After 50% CGT discount</p>
+              {event.cgtDiscountAmount > 0 && (
+                <p className="text-blue-100 text-xs mt-1">After 50% CGT discount</p>
+              )}
             </div>
           </div>
         </div>

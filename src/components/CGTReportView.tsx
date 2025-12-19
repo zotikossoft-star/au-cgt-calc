@@ -368,7 +368,7 @@ export const CGTReportView: React.FC<CGTReportViewProps> = ({
                     <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                       50% Discount
                     </th>
-                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[150px]">
+                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Actions
                     </th>
                   </tr>
@@ -439,10 +439,12 @@ export const CGTReportView: React.FC<CGTReportViewProps> = ({
                                 assetName: item.assetName,
                                 events: assetEvents
                               })}
-                              className="inline-flex items-center px-3 py-1.5 border border-blue-600 text-blue-600 text-sm font-medium rounded-md hover:bg-blue-50 transition-colors whitespace-nowrap"
+                              className="inline-flex items-center px-3 py-1.5 border border-blue-600 text-blue-600 text-sm font-medium rounded-md hover:bg-blue-50 transition-colors"
+                              title="View detailed breakdown of all CGT events for this asset"
                             >
                               <List size={14} className="mr-1 flex-shrink-0" />
-                              View Breakdown
+                              <span className="hidden md:inline">Events</span>
+                              <span className="md:hidden">View</span>
                             </button>
                           )}
                         </td>

@@ -21,6 +21,7 @@ export const AssetEventsModal: React.FC<AssetEventsModalProps> = ({
   const totalProceeds = events.reduce((sum, e) => sum + e.proceeds, 0);
   const totalGrossGain = events.reduce((sum, e) => sum + e.grossGainLoss, 0);
   const totalNetCapitalGain = events.reduce((sum, e) => sum + e.netCapitalGain, 0);
+  const totalCgtDiscount = events.reduce((sum, e) => sum + e.cgtDiscountAmount, 0);
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -50,17 +51,23 @@ export const AssetEventsModal: React.FC<AssetEventsModalProps> = ({
               <p className="text-white text-lg font-bold mt-1">{formatCurrency(totalProceeds)}</p>
             </div>
             <div>
-              <p className="text-blue-200 text-xs uppercase tracking-wider">Gross Gain</p>
+              <p className="text-blue-200 text-xs uppercase tracking-wider">
+                {totalGrossGain >= 0 ? 'Gross Gain' : 'Gross Loss'}
+              </p>
               <p className={`text-lg font-bold mt-1 ${totalGrossGain >= 0 ? 'text-green-300' : 'text-red-300'}`}>
                 {formatCurrency(totalGrossGain)}
               </p>
             </div>
             <div>
-              <p className="text-blue-200 text-xs uppercase tracking-wider">Taxable Gain</p>
+              <p className="text-blue-200 text-xs uppercase tracking-wider">
+                {totalGrossGain >= 0 ? 'Taxable Gain' : 'Capital Loss'}
+              </p>
               <p className={`text-lg font-bold mt-1 ${totalNetCapitalGain >= 0 ? 'text-green-300' : 'text-red-300'}`}>
                 {formatCurrency(totalNetCapitalGain)}
               </p>
-              <p className="text-blue-100 text-xs mt-1">After 50% CGT discount</p>
+              {totalCgtDiscount > 0 && (
+                <p className="text-blue-100 text-xs mt-1">After 50% CGT discount</p>
+              )}
             </div>
           </div>
         </div>
@@ -100,12 +107,14 @@ export const AssetEventsModal: React.FC<AssetEventsModalProps> = ({
                       <p className="text-xs text-gray-600 mb-1">Total Cost Base</p>
                       <p className="font-semibold text-gray-900">{formatCurrency(event.costBase)}</p>
                     </div>
-                    <div>
-                      <p className="text-xs text-gray-600 mb-1">CGT Discount (50%)</p>
-                      <p className="font-semibold text-green-600">
-                        -{formatCurrency(event.cgtDiscountAmount)}
-                      </p>
-                    </div>
+                    {event.cgtDiscountAmount > 0 && (
+                      <div>
+                        <p className="text-xs text-gray-600 mb-1">CGT Discount (50%)</p>
+                        <p className="font-semibold text-green-600">
+                          -{formatCurrency(event.cgtDiscountAmount)}
+                        </p>
+                      </div>
+                    )}
                   </div>
 
                   {/* Net Capital Gain */}
