@@ -16,26 +16,57 @@ export const AssetEventsModal: React.FC<AssetEventsModalProps> = ({
   events,
   onClose,
 }) => {
+  // Calculate totals across all events
+  const totalCostBase = events.reduce((sum, e) => sum + e.costBase, 0);
+  const totalProceeds = events.reduce((sum, e) => sum + e.proceeds, 0);
+  const totalGrossGain = events.reduce((sum, e) => sum + e.grossGainLoss, 0);
+  const totalNetCapitalGain = events.reduce((sum, e) => sum + e.netCapitalGain, 0);
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg shadow-xl max-w-7xl w-full max-h-[90vh] overflow-hidden">
         {/* Header */}
-        <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-4 flex justify-between items-center">
-          <div>
-            <h2 className="text-xl font-bold">{asset}</h2>
-            {assetName && <p className="text-blue-100 text-sm mt-1">{assetName}</p>}
-            <p className="text-blue-100 text-sm mt-1">{events.length} CGT Events</p>
+        <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-4">
+          <div className="flex justify-between items-start">
+            <div className="flex-1">
+              <h2 className="text-xl font-bold">{asset}</h2>
+              {assetName && <p className="text-blue-100 text-sm mt-1">{assetName}</p>}
+              <p className="text-blue-100 text-sm mt-1">{events.length} CGT Events</p>
+            </div>
+            <button
+              onClick={onClose}
+              className="text-white hover:bg-blue-800 rounded-full p-2 transition-colors"
+            >
+              <X size={24} />
+            </button>
           </div>
-          <button
-            onClick={onClose}
-            className="text-white hover:bg-blue-800 rounded-full p-2 transition-colors"
-          >
-            <X size={24} />
-          </button>
+          <div className="grid grid-cols-4 gap-4 mt-4 pt-4 border-t border-blue-500">
+            <div>
+              <p className="text-blue-200 text-xs uppercase tracking-wider">Cost Basis</p>
+              <p className="text-white text-lg font-bold mt-1">{formatCurrency(totalCostBase)}</p>
+            </div>
+            <div>
+              <p className="text-blue-200 text-xs uppercase tracking-wider">Proceeds</p>
+              <p className="text-white text-lg font-bold mt-1">{formatCurrency(totalProceeds)}</p>
+            </div>
+            <div>
+              <p className="text-blue-200 text-xs uppercase tracking-wider">Gross Gain</p>
+              <p className={`text-lg font-bold mt-1 ${totalGrossGain >= 0 ? 'text-green-300' : 'text-red-300'}`}>
+                {formatCurrency(totalGrossGain)}
+              </p>
+            </div>
+            <div>
+              <p className="text-blue-200 text-xs uppercase tracking-wider">Taxable Gain</p>
+              <p className={`text-lg font-bold mt-1 ${totalNetCapitalGain >= 0 ? 'text-green-300' : 'text-red-300'}`}>
+                {formatCurrency(totalNetCapitalGain)}
+              </p>
+              <p className="text-blue-100 text-xs mt-1">After 50% CGT discount</p>
+            </div>
+          </div>
         </div>
 
         {/* Content */}
-        <div className="p-6 overflow-y-auto max-h-[calc(90vh-80px)]">
+        <div className="p-6 overflow-y-auto max-h-[calc(90vh-240px)]">
           <div className="space-y-6">
             {events.map((event, eventIndex) => (
               <div key={eventIndex} className="bg-gray-50 rounded-lg border border-gray-200 p-4">

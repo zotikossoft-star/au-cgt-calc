@@ -90,6 +90,12 @@ export interface Holding {
   quantity: number;
   costBase: number;
   avgCost: number;
+  cgtEligibility?: {
+    eligibleQuantity: number;
+    ineligibleQuantity: number;
+    eligiblePercentage: number;
+    oldestPurchaseDate?: Date;
+  };
 }
 
 // Processing results

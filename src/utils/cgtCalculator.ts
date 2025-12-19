@@ -402,18 +402,50 @@ function buildHoldings(
   addAxSuffix: boolean = false
 ): Holding[] {
   const holdings: Holding[] = [];
+  const today = new Date();
 
   for (const [asset, lots] of inventory) {
     const totalQuantity = lots.reduce((sum, lot) => sum + lot.quantityRemaining, 0);
     const totalCost = lots.reduce((sum, lot) => sum + lot.quantityRemaining * lot.costPerUnit, 0);
 
     if (totalQuantity > 0.000001) {
+      // Calculate CGT eligibility (12+ months)
+      let eligibleQuantity = 0;
+      let ineligibleQuantity = 0;
+      let oldestPurchaseDate: Date | undefined;
+
+      lots.forEach(lot => {
+        if (lot.quantityRemaining > 0.000001) {
+          const holdingDays = Math.floor(
+            (today.getTime() - lot.date.getTime()) / (1000 * 60 * 60 * 24)
+          );
+
+          if (holdingDays > 365) {
+            eligibleQuantity += lot.quantityRemaining;
+          } else {
+            ineligibleQuantity += lot.quantityRemaining;
+          }
+
+          if (!oldestPurchaseDate || lot.date < oldestPurchaseDate) {
+            oldestPurchaseDate = lot.date;
+          }
+        }
+      });
+
+      const eligiblePercentage = totalQuantity > 0 ? (eligibleQuantity / totalQuantity) * 100 : 0;
+
       holdings.push({
         asset: addAxSuffix ? `${asset}.AX` : asset,
         assetName: names?.get(asset),
         quantity: totalQuantity,
         costBase: totalCost,
         avgCost: totalCost / totalQuantity,
+        cgtEligibility: {
+          eligibleQuantity,
+          ineligibleQuantity,
+          eligiblePercentage,
+          oldestPurchaseDate,
+        },
       });
     }
   }

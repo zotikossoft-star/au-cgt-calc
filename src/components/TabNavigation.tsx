@@ -24,6 +24,8 @@ export const TabNavigation: React.FC<TabNavigationProps> = ({
   activeTab,
   onTabChange,
   isMixed,
+  hasCrypto,
+  hasASX,
 }) => {
   // For mixed portfolios, show 5 tabs
   if (isMixed) {
@@ -114,7 +116,20 @@ export const TabNavigation: React.FC<TabNavigationProps> = ({
     );
   }
 
-  // For single type portfolios, show 3 tabs
+  // For single type portfolios, show 3 tabs with appropriate labels
+  const isCrypto = hasCrypto && !hasASX;
+  const isASX = hasASX && !hasCrypto;
+  const cgtLabel = isCrypto ? 'Crypto CGT' : isASX ? 'ASX CGT' : 'CGT Report';
+  const portfolioLabel = isCrypto ? 'Crypto Portfolio' : isASX ? 'ASX Portfolio' : 'Portfolio View';
+  const PortfolioIcon = isCrypto ? Bitcoin : isASX ? TrendingUp : PieChart;
+
+  // Active tab classes based on file type
+  const getActiveTabClass = (isActive: boolean) => {
+    if (!isActive) return 'text-gray-600 hover:bg-gray-50 hover:text-gray-900';
+    if (isCrypto) return 'bg-orange-600 text-white border-b-2 border-orange-600';
+    return 'bg-blue-600 text-white border-b-2 border-blue-600';
+  };
+
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-100 mb-6">
       <div className="flex border-b border-gray-100">
@@ -122,11 +137,7 @@ export const TabNavigation: React.FC<TabNavigationProps> = ({
           onClick={() => onTabChange('overview')}
           className={`
             flex items-center gap-2 px-6 py-3 font-medium transition-all duration-200
-            ${
-              activeTab === 'overview'
-                ? 'bg-blue-600 text-white border-b-2 border-blue-600'
-                : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-            }
+            ${getActiveTabClass(activeTab === 'overview')}
           `}
         >
           <BarChart3 className="w-4 h-4" />
@@ -137,30 +148,22 @@ export const TabNavigation: React.FC<TabNavigationProps> = ({
           onClick={() => onTabChange('cgt-report')}
           className={`
             flex items-center gap-2 px-6 py-3 font-medium transition-all duration-200
-            ${
-              activeTab === 'cgt-report'
-                ? 'bg-blue-600 text-white border-b-2 border-blue-600'
-                : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-            }
+            ${getActiveTabClass(activeTab === 'cgt-report')}
           `}
         >
           <FileText className="w-4 h-4" />
-          <span>CGT Report</span>
+          <span>{cgtLabel}</span>
         </button>
 
         <button
           onClick={() => onTabChange('portfolio-view')}
           className={`
             flex items-center gap-2 px-6 py-3 font-medium transition-all duration-200
-            ${
-              activeTab === 'portfolio-view'
-                ? 'bg-blue-600 text-white border-b-2 border-blue-600'
-                : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-            }
+            ${getActiveTabClass(activeTab === 'portfolio-view')}
           `}
         >
-          <PieChart className="w-4 h-4" />
-          <span>Portfolio View</span>
+          <PortfolioIcon className="w-4 h-4" />
+          <span>{portfolioLabel}</span>
         </button>
       </div>
     </div>

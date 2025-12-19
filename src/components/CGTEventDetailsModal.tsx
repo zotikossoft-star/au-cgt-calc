@@ -13,23 +13,49 @@ export const CGTEventDetailsModal: React.FC<CGTEventDetailsModalProps> = ({ even
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
         {/* Header */}
-        <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-4 flex justify-between items-center">
-          <div>
-            <h2 className="text-xl font-bold">{event.asset}</h2>
-            <p className="text-blue-100 text-sm mt-1">
-              Disposal Date: {formatDate(event.disposalDate)}
-            </p>
+        <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-4">
+          <div className="flex justify-between items-start">
+            <div className="flex-1">
+              <h2 className="text-xl font-bold">{event.asset}</h2>
+              {event.assetName && <p className="text-blue-100 text-sm mt-1">{event.assetName}</p>}
+              <p className="text-blue-100 text-sm mt-1">
+                Disposal Date: {formatDate(event.disposalDate)}
+              </p>
+            </div>
+            <button
+              onClick={onClose}
+              className="text-white hover:bg-blue-800 rounded-full p-2 transition-colors"
+            >
+              <X size={24} />
+            </button>
           </div>
-          <button
-            onClick={onClose}
-            className="text-white hover:bg-blue-800 rounded-full p-2 transition-colors"
-          >
-            <X size={24} />
-          </button>
+          <div className="grid grid-cols-4 gap-4 mt-4 pt-4 border-t border-blue-500">
+            <div>
+              <p className="text-blue-200 text-xs uppercase tracking-wider">Cost Basis</p>
+              <p className="text-white text-lg font-bold mt-1">{formatCurrency(event.costBase)}</p>
+            </div>
+            <div>
+              <p className="text-blue-200 text-xs uppercase tracking-wider">Proceeds</p>
+              <p className="text-white text-lg font-bold mt-1">{formatCurrency(event.proceeds)}</p>
+            </div>
+            <div>
+              <p className="text-blue-200 text-xs uppercase tracking-wider">Gross Gain</p>
+              <p className={`text-lg font-bold mt-1 ${event.grossGainLoss >= 0 ? 'text-green-300' : 'text-red-300'}`}>
+                {formatCurrency(event.grossGainLoss)}
+              </p>
+            </div>
+            <div>
+              <p className="text-blue-200 text-xs uppercase tracking-wider">Taxable Gain</p>
+              <p className={`text-lg font-bold mt-1 ${event.netCapitalGain >= 0 ? 'text-green-300' : 'text-red-300'}`}>
+                {formatCurrency(event.netCapitalGain)}
+              </p>
+              <p className="text-blue-100 text-xs mt-1">After 50% CGT discount</p>
+            </div>
+          </div>
         </div>
 
         {/* Content */}
-        <div className="p-6 overflow-y-auto max-h-[calc(90vh-80px)]">
+        <div className="p-6 overflow-y-auto max-h-[calc(90vh-240px)]">
           {/* Sale Transaction */}
           <div className="mb-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-3 border-b pb-2">
